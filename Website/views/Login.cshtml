@@ -12,7 +12,7 @@
 		if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
 		{
 			AntiForgery.Validate();
-			if (FormsAuthentication.Authenticate(username, password))
+			if (Membership.ValidateUser(username, password))
 			{
 				FormsAuthentication.RedirectFromLoginPage(username, remember == "on");
 			}
