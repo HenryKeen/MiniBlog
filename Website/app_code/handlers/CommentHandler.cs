@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Configuration;
 using System.Linq;
-using System.Net;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.Security;
 using System.Web.WebPages;
+using ASP.app_code.code;
 
 public class CommentHandler : IHttpHandler
 {
@@ -65,7 +65,7 @@ public class CommentHandler : IHttpHandler
         if (!context.User.Identity.IsAuthenticated)
         {
             MailMessage mail = GenerateEmail(comment, post, context.Request);
-            System.Threading.ThreadPool.QueueUserWorkItem((s) => SendEmail(mail));
+            System.Threading.ThreadPool.QueueUserWorkItem((s) => Email.Send(mail));
         }
 
         RenderComment(context, comment);
@@ -76,43 +76,6 @@ public class CommentHandler : IHttpHandler
         var page = (WebPage)WebPageBase.CreateInstanceFromVirtualPath("~/themes/" + Blog.Theme + "/comment.cshtml");
         page.Context = new HttpContextWrapper(context);
         page.ExecutePageHierarchy(new WebPageContext(page.Context, page: null, model: comment), context.Response.Output);
-    }
-
-    private static void SendEmail(MailMessage mail)
-    {
-        try
-        {
-            using (SmtpClient client = CreateMailClient())
-            {
-                client.Send(mail);
-                mail.Dispose();
-            }
-        }
-        catch
-        { }
-    }
-
-    private static SmtpClient CreateMailClient()
-    {
-        string host = ConfigurationManager.AppSettings["mail:host"];
-        string username = ConfigurationManager.AppSettings["mail:username"];
-        string password = ConfigurationManager.AppSettings["mail:password"];
-
-        int port;
-        if (!int.TryParse(ConfigurationManager.AppSettings["mail:port"], out port))
-            port = 587;
-
-        bool enableSSL;
-        if (!bool.TryParse(ConfigurationManager.AppSettings["mail:enableSSL"], out enableSSL))
-            enableSSL = true;
-
-        var client = new SmtpClient(host, port)
-        {
-            EnableSsl = enableSSL,
-            Credentials = new NetworkCredential(username, password)
-        };
-
-        return client;
     }
 
     private static MailMessage GenerateEmail(Comment comment, Post post, HttpRequest request)
