@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
+using System.Net;
 using System.Web;
 using System.Web.Hosting;
 using System.Xml.Linq;
@@ -79,6 +81,35 @@ public static class Storage
         }
 
         doc.Save(file);
+
+        bool doPushToGit;
+        if (bool.TryParse(ConfigurationManager.AppSettings["storage:git:enabled"], out doPushToGit) && doPushToGit)
+        {
+            PushFileToGitHub(post, doc);
+        }
+    }
+
+    static void PushFileToGitHub(Post post, XDocument doc)
+    {
+        var request = WebRequest.Create(string.Format("http://api.github.com/repos/{0}/contents/Website/posts", ConfigurationManager.AppSettings["storage:git:repo"]));
+        request.Method = "PUT";
+
+        using (Stream stream = request.GetRequestStream())
+        {
+            using (var writer = new StreamWriter(stream))
+            {
+                writer.WriteLine("{");
+                writer.WriteLine("  'message': '{0}',", post.Title);
+                writer.WriteLine("  'committer': {");
+                writer.WriteLine("      'name': '{0}'", ConfigurationManager.AppSettings["storage:git:username"]);
+                writer.WriteLine("      'email': '{0}'", ConfigurationManager.AppSettings["storage:git:email"]);
+                writer.WriteLine("  },");
+                writer.WriteLine("  'content': '");
+                doc.Save(writer);
+                writer.Write("'");
+                writer.WriteLine("}");
+            }
+        }
     }
 
     public static void Delete(Post post)
