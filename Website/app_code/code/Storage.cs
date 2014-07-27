@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Net;
+using System.Text;
 using System.Web;
 using System.Web.Hosting;
 using System.Xml.Linq;
@@ -91,10 +92,13 @@ public static class Storage
 
     static void PushFileToGitHub(Post post, XDocument doc)
     {
-        var request = WebRequest.Create(string.Format("http://api.github.com/repos/{0}/contents/Website/posts", ConfigurationManager.AppSettings["storage:git:repo"]));
+        var request = WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts", ConfigurationManager.AppSettings["storage:git:repo"]));
         request.Method = "PUT";
+        request.Headers["x-oauth-basic"] = string.Format("{0}", ConfigurationManager.AppSettings["storage:git:token"]);
 
-        using (Stream stream = request.GetRequestStream())
+        string encodedFile;
+
+        using (Stream stream = new MemoryStream())
         {
             using (var writer = new StreamWriter(stream))
             {
@@ -104,10 +108,22 @@ public static class Storage
                 writer.WriteLine("      'name': '{0}'", ConfigurationManager.AppSettings["storage:git:username"]);
                 writer.WriteLine("      'email': '{0}'", ConfigurationManager.AppSettings["storage:git:email"]);
                 writer.WriteLine("  },");
-                writer.WriteLine("  'content': '");
-                doc.Save(writer);
-                writer.Write("'");
-                writer.WriteLine("}");
+                writer.Write("  'content': '");
+
+                //Need to base64 encode this
+                string utf8Doc = doc.ToString();
+                writer.Write(Convert.ToBase64String(Encoding.UTF8.GetBytes(utf8Doc)));
+                writer.WriteLine("'");
+                writer.Write("}");
+                writer.Flush();
+
+                request.ContentLength = stream.Length;
+
+                var requestStream = request.GetRequestStream();
+                stream.Position = 0;
+                stream.CopyTo(requestStream, 1024);
+
+                request.GetResponse();
             }
         }
     }
