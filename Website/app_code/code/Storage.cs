@@ -92,40 +92,38 @@ public static class Storage
 
     static void PushFileToGitHub(Post post, XDocument doc)
     {
-        var request = WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts", ConfigurationManager.AppSettings["storage:git:repo"]));
+        var request = (HttpWebRequest)WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts", ConfigurationManager.AppSettings["storage:git:repo"]));
         request.Method = "PUT";
-        request.Headers["x-oauth-basic"] = string.Format("{0}", ConfigurationManager.AppSettings["storage:git:token"]);
-
-        string encodedFile;
+        request.UserAgent = "Miniblog";
+        request.Headers[HttpRequestHeader.Authorization] = string.Format("Basic {0}", ConfigurationManager.AppSettings["storage:git:token"]);
 
         using (Stream stream = new MemoryStream())
         {
             using (var writer = new StreamWriter(stream))
             {
                 writer.WriteLine("{");
-                writer.WriteLine("  'message': '{0}',", post.Title);
-                writer.WriteLine("  'committer': {");
-                writer.WriteLine("      'name': '{0}'", ConfigurationManager.AppSettings["storage:git:username"]);
-                writer.WriteLine("      'email': '{0}'", ConfigurationManager.AppSettings["storage:git:email"]);
-                writer.WriteLine("  },");
-                writer.Write("  'content': '");
-
-                //Need to base64 encode this
-                string utf8Doc = doc.ToString();
-                writer.Write(Convert.ToBase64String(Encoding.UTF8.GetBytes(utf8Doc)));
-                writer.WriteLine("'");
+                writer.WriteLine("  \"message\": \"{0}\",", post.Title);
+                writer.Write("  \"content\": \"");
+                writer.Write(ToBase64String(doc.ToString()));
+                writer.WriteLine("\"");
                 writer.Write("}");
                 writer.Flush();
 
                 request.ContentLength = stream.Length;
 
-                var requestStream = request.GetRequestStream();
-                stream.Position = 0;
-                stream.CopyTo(requestStream, 1024);
-
+                using (var requestStream = request.GetRequestStream())
+                {
+                    stream.Position = 0;
+                    stream.CopyTo(requestStream, 512);
+                }
                 request.GetResponse();
             }
         }
+    }
+
+    static string ToBase64String(string str)
+    {
+        return Convert.ToBase64String(Encoding.ASCII.GetBytes(str));
     }
 
     public static void Delete(Post post)
