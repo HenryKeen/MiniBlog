@@ -95,7 +95,10 @@ public static class Storage
         var request = (HttpWebRequest)WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts", ConfigurationManager.AppSettings["storage:git:repo"]));
         request.Method = "PUT";
         request.UserAgent = "Miniblog";
-        request.Headers[HttpRequestHeader.Authorization] = string.Format("Basic {0}", ConfigurationManager.AppSettings["storage:git:token"]);
+        
+        string token = ToBase64String(string.Format("{0}:{1}", ConfigurationManager.AppSettings["storage:git:username"], ConfigurationManager.AppSettings["storage:git:password"]));
+        request.Headers[HttpRequestHeader.Authorization] = string.Format("Basic {0}", token);
+
 
         using (Stream stream = new MemoryStream())
         {
