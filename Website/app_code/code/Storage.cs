@@ -86,25 +86,28 @@ public static class Storage
         bool doPushToGit;
         if (bool.TryParse(ConfigurationManager.AppSettings["storage:git:enabled"], out doPushToGit) && doPushToGit)
         {
-            PushFileToGitHub(post, doc);
+            PushFileToGitHub(post, doc, file);
         }
     }
 
-    static void PushFileToGitHub(Post post, XDocument doc)
+    static void PushFileToGitHub(Post post, XDocument doc, string filename)
     {
-        var request = (HttpWebRequest)WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts", ConfigurationManager.AppSettings["storage:git:repo"]));
+        var request = (HttpWebRequest)WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts/{1}", ConfigurationManager.AppSettings["storage:git:repo"], filename));
         request.Method = "PUT";
         request.UserAgent = "Miniblog";
         
-        string token = ToBase64String(string.Format("{0}:{1}", ConfigurationManager.AppSettings["storage:git:username"], ConfigurationManager.AppSettings["storage:git:password"]));
+        string token = ToBase64String(string.Format("{0}:{1}", ConfigurationManager.AppSettings["storage:git:email"], ConfigurationManager.AppSettings["storage:git:password"]));
         request.Headers[HttpRequestHeader.Authorization] = string.Format("Basic {0}", token);
-
 
         using (Stream stream = new MemoryStream())
         {
             using (var writer = new StreamWriter(stream))
             {
                 writer.WriteLine("{");
+                writer.WriteLine(" \"commiter\": {");
+                writer.WriteLine("      \"name\": \"{0}\",", ConfigurationManager.AppSettings["storage:git:username"]);
+                writer.WriteLine("      \"email\": \"{0}\"", ConfigurationManager.AppSettings["storage:git:email"]);
+                writer.WriteLine("},");
                 writer.WriteLine("  \"message\": \"{0}\",", post.Title);
                 writer.Write("  \"content\": \"");
                 writer.Write(ToBase64String(doc.ToString()));
