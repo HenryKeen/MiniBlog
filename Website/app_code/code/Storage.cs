@@ -135,16 +135,20 @@ public static class Storage
     {
         HttpWebRequest request = CreateGithubRequest(post);
         request.Method = "GET";
-        
-        var response = (HttpWebResponse)request.GetResponse();
-        if (response.StatusCode == HttpStatusCode.OK)
+
+        try
         {
-            using (var reader = new StreamReader(response.GetResponseStream()))
+            var response = (HttpWebResponse) request.GetResponse();
+            if (response.StatusCode == HttpStatusCode.OK)
             {
-                dynamic data = Json.Decode(reader.ReadToEnd());
-                return data.sha;
+                using (var reader = new StreamReader(response.GetResponseStream()))
+                {
+                    dynamic data = Json.Decode(reader.ReadToEnd());
+                    return data.sha;
+                }
             }
         }
+        catch (WebException) {}
 
         return null;
     }
