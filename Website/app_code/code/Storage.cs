@@ -86,18 +86,14 @@ public static class Storage
         bool doPushToGit;
         if (bool.TryParse(ConfigurationManager.AppSettings["storage:git:enabled"], out doPushToGit) && doPushToGit)
         {
-            PushFileToGitHub(post, doc, file);
+            PushFileToGitHub(post, doc);
         }
     }
 
-    static void PushFileToGitHub(Post post, XDocument doc, string filename)
+    static void PushFileToGitHub(Post post, XDocument doc)
     {
-        var request = (HttpWebRequest)WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts/{1}", ConfigurationManager.AppSettings["storage:git:repo"], filename));
+        HttpWebRequest request = CreateGithubRequest(post);
         request.Method = "PUT";
-        request.UserAgent = "Miniblog";
-        
-        string token = ToBase64String(string.Format("{0}:{1}", ConfigurationManager.AppSettings["storage:git:email"], ConfigurationManager.AppSettings["storage:git:password"]));
-        request.Headers[HttpRequestHeader.Authorization] = string.Format("Basic {0}", token);
 
         using (Stream stream = new MemoryStream())
         {
@@ -139,6 +135,24 @@ public static class Storage
         File.Delete(file);
         posts.Remove(post);
         Blog.ClearStartPageCache();
+
+        HttpWebRequest request = CreateGithubRequest(post);
+        request.Method = "Delete";
+        request.GetResponse();
+    }
+
+    static HttpWebRequest CreateGithubRequest(Post post)
+    {
+        string repo = ConfigurationManager.AppSettings["storage:git:repo"];
+        string email = ConfigurationManager.AppSettings["storage:git:email"];
+        string password = ConfigurationManager.AppSettings["storage:git:password"];
+
+        var request = (HttpWebRequest)WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts/{1}", repo, post.ID + ".xml"));
+        request.UserAgent = "Miniblog";
+
+        string token = ToBase64String(string.Format("{0}:{1}", email, password));
+        request.Headers[HttpRequestHeader.Authorization] = string.Format("Basic {0}", token);
+        return request;
     }
 
     private static void LoadPosts()
