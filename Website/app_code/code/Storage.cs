@@ -5,9 +5,11 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Web;
+using System.Web.Helpers;
 using System.Web.Hosting;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using Microsoft.Ajax.Utilities;
 
 public static class Storage
 {
@@ -92,6 +94,8 @@ public static class Storage
 
     static void PushFileToGitHub(Post post, XDocument doc)
     {
+        string sha = GetSHA(post);
+
         HttpWebRequest request = CreateGithubRequest(post);
         request.Method = "PUT";
 
@@ -105,6 +109,10 @@ public static class Storage
                 writer.WriteLine("      \"email\": \"{0}\"", ConfigurationManager.AppSettings["storage:git:email"]);
                 writer.WriteLine("},");
                 writer.WriteLine("  \"message\": \"{0}\",", post.Title);
+
+                if (sha != null)
+                    writer.WriteLine("  \"sha\":\"{0}\",", sha);
+                
                 writer.Write("  \"content\": \"");
                 writer.Write(ToBase64String(doc.ToString()));
                 writer.WriteLine("\"");
@@ -121,6 +129,24 @@ public static class Storage
                 request.GetResponse();
             }
         }
+    }
+
+    static string GetSHA(Post post)
+    {
+        HttpWebRequest request = CreateGithubRequest(post);
+        request.Method = "GET";
+        
+        var response = (HttpWebResponse)request.GetResponse();
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            using (var reader = new StreamReader(response.GetResponseStream()))
+            {
+                dynamic data = Json.Decode(reader.ReadToEnd());
+                return data.sha;
+            }
+        }
+
+        return null;
     }
 
     static string ToBase64String(string str)
