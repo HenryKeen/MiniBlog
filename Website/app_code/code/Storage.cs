@@ -2,14 +2,10 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
-using System.Net;
-using System.Text;
 using System.Web;
-using System.Web.Helpers;
 using System.Web.Hosting;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using Microsoft.Ajax.Utilities;
 
 public static class Storage
 {
@@ -85,77 +81,10 @@ public static class Storage
 
         doc.Save(file);
 
-        bool doPushToGit;
-        if (bool.TryParse(ConfigurationManager.AppSettings["storage:git:enabled"], out doPushToGit) && doPushToGit)
+        if (GitStorageIsEnabled())
         {
-            PushFileToGitHub(post, doc);
+            Git.SaveFile(post, doc);
         }
-    }
-
-    static void PushFileToGitHub(Post post, XDocument doc)
-    {
-        string sha = GetSHA(post);
-
-        HttpWebRequest request = CreateGithubRequest(post);
-        request.Method = "PUT";
-
-        using (Stream stream = new MemoryStream())
-        {
-            using (var writer = new StreamWriter(stream))
-            {
-                writer.WriteLine("{");
-                writer.WriteLine(" \"commiter\": {");
-                writer.WriteLine("      \"name\": \"{0}\",", ConfigurationManager.AppSettings["storage:git:username"]);
-                writer.WriteLine("      \"email\": \"{0}\"", ConfigurationManager.AppSettings["storage:git:email"]);
-                writer.WriteLine("},");
-                writer.WriteLine("  \"message\": \"{0}\",", post.Title);
-
-                if (sha != null)
-                    writer.WriteLine("  \"sha\":\"{0}\",", sha);
-                
-                writer.Write("  \"content\": \"");
-                writer.Write(ToBase64String(doc.ToString()));
-                writer.WriteLine("\"");
-                writer.Write("}");
-                writer.Flush();
-
-                request.ContentLength = stream.Length;
-
-                using (var requestStream = request.GetRequestStream())
-                {
-                    stream.Position = 0;
-                    stream.CopyTo(requestStream, 512);
-                }
-                request.GetResponse();
-            }
-        }
-    }
-
-    static string GetSHA(Post post)
-    {
-        HttpWebRequest request = CreateGithubRequest(post);
-        request.Method = "GET";
-
-        try
-        {
-            var response = (HttpWebResponse) request.GetResponse();
-            if (response.StatusCode == HttpStatusCode.OK)
-            {
-                using (var reader = new StreamReader(response.GetResponseStream()))
-                {
-                    dynamic data = Json.Decode(reader.ReadToEnd());
-                    return data.sha;
-                }
-            }
-        }
-        catch (WebException) {}
-
-        return null;
-    }
-
-    static string ToBase64String(string str)
-    {
-        return Convert.ToBase64String(Encoding.ASCII.GetBytes(str));
     }
 
     public static void Delete(Post post)
@@ -166,23 +95,16 @@ public static class Storage
         posts.Remove(post);
         Blog.ClearStartPageCache();
 
-        HttpWebRequest request = CreateGithubRequest(post);
-        request.Method = "Delete";
-        request.GetResponse();
+        if (GitStorageIsEnabled())
+        {
+            Git.DeleteFile(post);
+        }
     }
 
-    static HttpWebRequest CreateGithubRequest(Post post)
+    private static bool GitStorageIsEnabled()
     {
-        string repo = ConfigurationManager.AppSettings["storage:git:repo"];
-        string email = ConfigurationManager.AppSettings["storage:git:email"];
-        string password = ConfigurationManager.AppSettings["storage:git:password"];
-
-        var request = (HttpWebRequest)WebRequest.Create(string.Format("https://api.github.com/repos/{0}/contents/Website/posts/{1}", repo, post.ID + ".xml"));
-        request.UserAgent = "Miniblog";
-
-        string token = ToBase64String(string.Format("{0}:{1}", email, password));
-        request.Headers[HttpRequestHeader.Authorization] = string.Format("Basic {0}", token);
-        return request;
+        bool doPushToGit;
+        return bool.TryParse(ConfigurationManager.AppSettings["storage:git:enabled"], out doPushToGit) && doPushToGit;
     }
 
     private static void LoadPosts()
@@ -237,6 +159,7 @@ public static class Storage
 
         post.Categories = list.ToArray();
     }
+
     private static void LoadComments(Post post, XElement doc)
     {
         var comments = doc.Element("comments");
