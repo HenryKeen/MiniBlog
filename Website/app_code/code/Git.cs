@@ -34,6 +34,8 @@ static internal class Git
         string fileName = post.ID + ".xml";
         string sha = GetFileSHA(fileName);
 
+        var title = (sha == null) ? "Create" : "Update";
+
         var body = new
         {
             commiter = new
@@ -41,7 +43,7 @@ static internal class Git
                 name = UserName,
                 email = Email
             },
-            message = post.Title,
+            message = string.Format("{0} post: {1}", title, post.Title),
             sha = sha,
             content = ToBase64String(doc.ToString())
         };
@@ -60,7 +62,7 @@ static internal class Git
                 name = UserName,
                 email = Email
             },
-            message = post.Title,
+            message = "Delete post: " + post.Title,
             sha = sha
         };
         SendRequest(fileName, body, "DELETE");
