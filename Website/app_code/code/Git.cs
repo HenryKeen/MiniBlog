@@ -126,6 +126,6 @@ static internal class Git
 
     private static string ToBase64String(string str)
     {
-        return Convert.ToBase64String(Encoding.ASCII.GetBytes(str));
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(str));
     }
 }
