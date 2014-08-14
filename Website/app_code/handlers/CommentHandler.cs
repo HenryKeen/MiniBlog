@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.Security;
 using System.Web.WebPages;
+using ASP.app_code.code;
 
 public class CommentHandler : IHttpHandler
 {
@@ -64,7 +65,7 @@ public class CommentHandler : IHttpHandler
         if (!context.User.Identity.IsAuthenticated)
         {
             MailMessage mail = GenerateEmail(comment, post, context.Request);
-            System.Threading.ThreadPool.QueueUserWorkItem((s) => SendEmail(mail));
+            System.Threading.ThreadPool.QueueUserWorkItem((s) => Email.Send(mail));
         }
 
         RenderComment(context, comment);
@@ -75,20 +76,6 @@ public class CommentHandler : IHttpHandler
         var page = (WebPage)WebPageBase.CreateInstanceFromVirtualPath("~/themes/" + Blog.Theme + "/comment.cshtml");
         page.Context = new HttpContextWrapper(context);
         page.ExecutePageHierarchy(new WebPageContext(page.Context, page: null, model: comment), context.Response.Output);
-    }
-
-    private static void SendEmail(MailMessage mail)
-    {
-        try
-        {
-            using (SmtpClient client = new SmtpClient())
-            {
-                client.Send(mail);
-                mail.Dispose();
-            }
-        }
-        catch
-        { }
     }
 
     private static MailMessage GenerateEmail(Comment comment, Post post, HttpRequest request)

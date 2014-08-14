@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Web;
 using System.Web.Hosting;
@@ -79,6 +80,11 @@ public static class Storage
         }
 
         doc.Save(file);
+
+        if (GitStorageIsEnabled())
+        {
+            Git.SaveFile(post, doc);
+        }
     }
 
     public static void Delete(Post post)
@@ -88,6 +94,17 @@ public static class Storage
         File.Delete(file);
         posts.Remove(post);
         Blog.ClearStartPageCache();
+
+        if (GitStorageIsEnabled())
+        {
+            Git.DeleteFile(post);
+        }
+    }
+
+    private static bool GitStorageIsEnabled()
+    {
+        bool doPushToGit;
+        return bool.TryParse(ConfigurationManager.AppSettings["storage:git:enabled"], out doPushToGit) && doPushToGit;
     }
 
     private static void LoadPosts()
@@ -142,6 +159,7 @@ public static class Storage
 
         post.Categories = list.ToArray();
     }
+
     private static void LoadComments(Post post, XElement doc)
     {
         var comments = doc.Element("comments");
