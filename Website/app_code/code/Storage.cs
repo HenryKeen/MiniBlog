@@ -81,7 +81,7 @@ public static class Storage
 
         doc.Save(file);
 
-        if (GitStorageIsEnabled())
+        if (DoStoreInGit(post))
         {
             Git.SaveFile(post, doc);
         }
@@ -101,10 +101,22 @@ public static class Storage
         }
     }
 
+    private static bool DoStoreInGit(Post post)
+    {
+        if (!GitStorageIsEnabled())
+            return false;
+
+        if (post.IsPublished)
+            return true;
+
+        bool doPublishDrafts;
+        return bool.TryParse(ConfigurationManager.AppSettings["storage:git:store-drafts"], out doPublishDrafts) && doPublishDrafts;
+    }
+
     private static bool GitStorageIsEnabled()
     {
-        bool doPushToGit;
-        return bool.TryParse(ConfigurationManager.AppSettings["storage:git:enabled"], out doPushToGit) && doPushToGit;
+        bool gitEnabled;
+        return bool.TryParse(ConfigurationManager.AppSettings["storage:git:enabled"], out gitEnabled) && gitEnabled;
     }
 
     private static void LoadPosts()
